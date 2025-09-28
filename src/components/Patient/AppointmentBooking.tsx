@@ -1,19 +1,21 @@
 import React, { useState } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { Calendar, Clock, User, Plus } from 'lucide-react';
 
 export default function AppointmentBooking() {
   const { patients, doctors } = useData();
   const { user } = useAuth();
   const [showBooking, setShowBooking] = useState(false);
 
+  // Find patient
   const patient = patients.find((p) => p.id === user?.id);
   
   if (!patient) {
     return (
       <div style={{ padding: '20px', color: 'red' }}>
         <h2>⚠️ Patient not found</h2>
+        <p>User ID: {user?.id || 'No user'}</p>
+        <p>Available patients: {patients.length}</p>
       </div>
     );
   }
@@ -22,16 +24,14 @@ export default function AppointmentBooking() {
     <div style={{ padding: '20px' }}>
       <div style={{ backgroundColor: '#f8f9fa', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
         <h2>📅 Appointment Booking</h2>
-        <p>✅ Step 3: Icons working!</p>
+        <p>✅ Step 2: Contexts working!</p>
         <p>Patient: {patient.name}</p>
+        <p>Available doctors: {doctors.length}</p>
       </div>
 
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', border: '1px solid #ddd' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Calendar size={24} color="#007bff" />
-            <h3>Your Appointments</h3>
-          </div>
+          <h3>Your Appointments</h3>
           <button
             onClick={() => setShowBooking(!showBooking)}
             style={{
@@ -40,13 +40,9 @@ export default function AppointmentBooking() {
               border: 'none',
               padding: '10px 20px',
               borderRadius: '5px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
+              cursor: 'pointer'
             }}
           >
-            <Plus size={16} />
             Book Appointment
           </button>
         </div>
@@ -84,7 +80,6 @@ export default function AppointmentBooking() {
         )}
 
         <div style={{ textAlign: 'center', padding: '40px', color: '#6c757d' }}>
-          <Calendar size={48} color="#ccc" style={{ margin: '0 auto 16px auto' }} />
           <p>📋 No appointments scheduled</p>
           <p>Book your first appointment to get started</p>
         </div>
