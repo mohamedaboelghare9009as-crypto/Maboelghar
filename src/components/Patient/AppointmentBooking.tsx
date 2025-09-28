@@ -18,3 +18,5 @@ export default function AppointmentBooking() {
         <strong>Next steps:</strong> We can now add back the Supabase functionality step by step.
       </div>
     </div>
+  );
+}
