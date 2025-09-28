@@ -1,18 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
+// Try one of these import paths (uncomment the one that works):
+
+// Option 1: If supabaseClient.ts is in src/lib/
+import { supabase } from '../../lib/supabaseClient';
+
+// Option 2: If it's in src/utils/
+// import { supabase } from '../../utils/supabaseClient';
+
+// Option 3: If it's in src/config/
+// import { supabase } from '../../config/supabaseClient';
+
+// Option 4: If it's in src/ root
+// import { supabase } from '../../supabaseClient';
+
+// Option 5: If it's named supabase.ts instead
+// import { supabase } from '../../lib/supabase';
+
+// Option 6: If it's in src/lib/index.ts
+// import { supabase } from '../../lib/';
+
+// Option 7: Inline Supabase client (temporary solution)
+// import { createClient } from '@supabase/supabase-js';
+// const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
+// const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
+// export const supabase = createClient(supabaseUrl, supabaseKey);
+
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Calendar, Clock, User, CheckCircle, AlertCircle, Plus } from 'lucide-react';
-
-// Inline Supabase client configuration
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error("Missing Supabase environment variables");
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default function AppointmentBooking() {
   const { patients, doctors, addAppointment } = useData();
