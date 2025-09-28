@@ -1,30 +1,4 @@
 import React, { useState, useEffect } from 'react';
-// Try one of these import paths (uncomment the one that works):
-
-// Option 1: If supabaseClient.ts is in src/lib/
-import { supabase } from '../../lib/supabaseClient';
-
-// Option 2: If it's in src/utils/
-// import { supabase } from '../../utils/supabaseClient';
-
-// Option 3: If it's in src/config/
-// import { supabase } from '../../config/supabaseClient';
-
-// Option 4: If it's in src/ root
-// import { supabase } from '../../supabaseClient';
-
-// Option 5: If it's named supabase.ts instead
-// import { supabase } from '../../lib/supabase';
-
-// Option 6: If it's in src/lib/index.ts
-// import { supabase } from '../../lib/';
-
-// Option 7: Inline Supabase client (temporary solution)
-// import { createClient } from '@supabase/supabase-js';
-// const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
-// const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
-// export const supabase = createClient(supabaseUrl, supabaseKey);
-
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Calendar, Clock, User, CheckCircle, AlertCircle, Plus } from 'lucide-react';
@@ -43,20 +17,21 @@ export default function AppointmentBooking() {
   const patient = patients.find((p) => p.id === user?.id);
   if (!patient) return <div>Patient not found</div>;
 
-  // ✅ fetch appointments from Supabase
+  // ✅ Use mock data - NO SUPABASE
   useEffect(() => {
-    const fetchAppointments = async () => {
-      const { data, error } = await supabase
-        .from('appointments')
-        .select('*')
-        .eq('patient_id', patient.id);
-
-      if (error) console.error('Error fetching appointments:', error);
-      else setAppointments(data || []);
-    };
-
-    fetchAppointments();
-  }, [patient.id]);
+    console.log('Loading mock appointments...');
+    const mockAppointments = [
+      {
+        id: '1',
+        patient_id: patient.id,
+        doctor_id: doctors[0]?.id || 'doc1',
+        date: '2025-10-01',
+        time: '09:00',
+        status: 'scheduled'
+      }
+    ];
+    setAppointments(mockAppointments);
+  }, [patient.id, doctors]);
 
   // ✅ time slots
   const availableTimeSlots = [
@@ -70,30 +45,24 @@ export default function AppointmentBooking() {
     return tomorrow.toISOString().split('T')[0];
   };
 
-  // ✅ booking handler
+  // ✅ Mock booking handler
   const handleBookAppointment = async () => {
     if (!selectedDoctor || !selectedDate || !selectedTime) {
       alert('Please fill in all fields');
       return;
     }
 
-    const { data, error } = await supabase.from('appointments').insert([
-      {
-        patient_id: patient.id,
-        doctor_id: selectedDoctor,
-        date: selectedDate,
-        time: selectedTime,
-        status: 'scheduled',
-      },
-    ]);
+    const newAppointment = {
+      id: Date.now().toString(),
+      patient_id: patient.id,
+      doctor_id: selectedDoctor,
+      date: selectedDate,
+      time: selectedTime,
+      status: 'scheduled',
+    };
 
-    if (error) {
-      console.error('Supabase error:', error);
-      alert(`Something went wrong: ${error.message}`);
-      return;
-    }
+    setAppointments((prev) => [...prev, newAppointment]);
 
-    // update local state + context
     addAppointment({
       patientId: patient.id,
       doctorId: selectedDoctor,
@@ -102,27 +71,14 @@ export default function AppointmentBooking() {
       status: 'scheduled',
     });
 
-    setAppointments((prev) => [
-      ...prev,
-      {
-        id: data?.[0]?.id || Math.random().toString(),
-        patient_id: patient.id,
-        doctor_id: selectedDoctor,
-        date: selectedDate,
-        time: selectedTime,
-        status: 'scheduled',
-      },
-    ]);
-
     setShowBooking(false);
     setSelectedDoctor('');
     setSelectedDate('');
     setSelectedTime('');
 
-    alert('Appointment booked successfully!');
+    alert('✅ Appointment booked successfully!');
   };
 
-  // ✅ helpers for UI
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'scheduled':
@@ -151,6 +107,12 @@ export default function AppointmentBooking() {
 
   return (
     <div className="space-y-6">
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+        <p className="text-sm text-green-800">
+          ✅ <strong>Working Mode:</strong> App is now working with mock data. Database integration can be added later.
+        </p>
+      </div>
+
       <div className="bg-white rounded-lg shadow-sm p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-3">
@@ -167,7 +129,6 @@ export default function AppointmentBooking() {
           </button>
         </div>
 
-        {/* Booking Form */}
         {showBooking && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
             <h3 className="text-lg font-semibold text-blue-900 mb-4">Book New Appointment</h3>
@@ -240,7 +201,6 @@ export default function AppointmentBooking() {
           </div>
         )}
 
-        {/* Appointment List */}
         <div>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Appointments</h3>
 
@@ -287,7 +247,7 @@ export default function AppointmentBooking() {
                               {doctor?.name || 'Doctor Not Found'}
                             </h4>
                             <p className="text-sm text-gray-600">
-                              {doctor?.specialization}
+                              {doctor?.specialization || 'General Practice'}
                             </p>
                             <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
                               <div className="flex items-center space-x-1">
