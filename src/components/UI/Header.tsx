@@ -20,7 +20,7 @@ export default function Header({ title, user }: HeaderProps) {
             </div>
             <div>
               <h1 className="text-xl font-bold text-gray-900">{title}</h1>
-              <p className="text-sm text-gray-500">SmartClinic</p>
+              <p className="text-sm text-gray-500">Clinic Manager</p>
             </div>
           </div>
 
