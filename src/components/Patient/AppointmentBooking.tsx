@@ -4,9 +4,13 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Calendar, Clock, User, Plus } from 'lucide-react';
 
 export default function AppointmentBooking() {
-  const { patients, doctors } = useData();
+  const { patients, doctors, addAppointment } = useData();
   const { user } = useAuth();
+  
   const [showBooking, setShowBooking] = useState(false);
+  const [selectedDoctor, setSelectedDoctor] = useState('');
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTime, setSelectedTime] = useState('');
 
   const patient = patients.find((p) => p.id === user?.id);
   
@@ -18,11 +22,46 @@ export default function AppointmentBooking() {
     );
   }
 
+  const availableTimeSlots = [
+    '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+    '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
+  ];
+
+  const getMinDate = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  };
+
+  const handleBookAppointment = () => {
+    if (!selectedDoctor || !selectedDate || !selectedTime) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    // Add to context
+    addAppointment({
+      patientId: patient.id,
+      doctorId: selectedDoctor,
+      date: selectedDate,
+      time: selectedTime,
+      status: 'scheduled',
+    });
+
+    // Reset form
+    setShowBooking(false);
+    setSelectedDoctor('');
+    setSelectedDate('');
+    setSelectedTime('');
+
+    alert('✅ Appointment booked successfully!');
+  };
+
   return (
     <div style={{ padding: '20px' }}>
       <div style={{ backgroundColor: '#f8f9fa', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
         <h2>📅 Appointment Booking</h2>
-        <p>✅ Step 3: Icons working!</p>
+        <p>✅ Step 4: Full booking form!</p>
         <p>Patient: {patient.name}</p>
       </div>
 
@@ -55,31 +94,79 @@ export default function AppointmentBooking() {
           <div style={{ backgroundColor: '#e3f2fd', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
             <h4>Book New Appointment</h4>
             
-            <div style={{ marginBottom: '15px' }}>
-              <label>Select Doctor:</label>
-              <select style={{ width: '100%', padding: '8px', marginTop: '5px' }}>
-                <option value="">Choose a doctor</option>
-                {doctors.map((doctor) => (
-                  <option key={doctor.id} value={doctor.id}>
-                    {doctor.name} - {doctor.specialization}
-                  </option>
-                ))}
-              </select>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Select Doctor:</label>
+                <select 
+                  value={selectedDoctor}
+                  onChange={(e) => setSelectedDoctor(e.target.value)}
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                >
+                  <option value="">Choose a doctor</option>
+                  {doctors.map((doctor) => (
+                    <option key={doctor.id} value={doctor.id}>
+                      {doctor.name} - {doctor.specialization}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Select Date:</label>
+                <input 
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  min={getMinDate()}
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Select Time:</label>
+                <select 
+                  value={selectedTime}
+                  onChange={(e) => setSelectedTime(e.target.value)}
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                >
+                  <option value="">Choose time</option>
+                  {availableTimeSlots.map((time) => (
+                    <option key={time} value={time}>
+                      {time}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            <button
-              onClick={() => setShowBooking(false)}
-              style={{
-                backgroundColor: '#6c757d',
-                color: 'white',
-                border: 'none',
-                padding: '8px 16px',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              Cancel
-            </button>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={handleBookAppointment}
+                style={{
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Book Appointment
+              </button>
+              <button
+                onClick={() => setShowBooking(false)}
+                style={{
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
 
