@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { Calendar, Clock, User, Plus, CheckCircle, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, User, CheckCircle, AlertCircle, Plus } from 'lucide-react';
 
 export default function AppointmentBooking() {
   const { patients, doctors, addAppointment } = useData();
   const { user } = useAuth();
-  
+
   const [appointments, setAppointments] = useState<any[]>([]);
   const [showBooking, setShowBooking] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState('');
@@ -14,17 +14,10 @@ export default function AppointmentBooking() {
   const [selectedTime, setSelectedTime] = useState('');
 
   const patient = patients.find((p) => p.id === user?.id);
-  
-  if (!patient) {
-    return (
-      <div style={{ padding: '20px', color: 'red' }}>
-        <h2>⚠️ Patient not found</h2>
-      </div>
-    );
-  }
+  if (!patient) return <div className="p-5 text-red-600">Patient not found</div>;
 
-  // Load mock appointments
   useEffect(() => {
+    console.log('Loading appointments...');
     const mockAppointments = [
       {
         id: '1',
@@ -49,7 +42,7 @@ export default function AppointmentBooking() {
     return tomorrow.toISOString().split('T')[0];
   };
 
-  const handleBookAppointment = () => {
+  const handleBookAppointment = async () => {
     if (!selectedDoctor || !selectedDate || !selectedTime) {
       alert('Please fill in all fields');
       return;
@@ -64,7 +57,7 @@ export default function AppointmentBooking() {
       status: 'scheduled',
     };
 
-    setAppointments(prev => [...prev, newAppointment]);
+    setAppointments((prev) => [...prev, newAppointment]);
 
     addAppointment({
       patientId: patient.id,
@@ -84,66 +77,67 @@ export default function AppointmentBooking() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'scheduled': return { bg: '#e3f2fd', text: '#1976d2' };
-      case 'completed': return { bg: '#e8f5e8', text: '#2e7d2e' };
-      case 'cancelled': return { bg: '#ffebee', text: '#d32f2f' };
-      default: return { bg: '#f5f5f5', text: '#666' };
+      case 'scheduled':
+        return 'text-blue-600 bg-blue-100';
+      case 'completed':
+        return 'text-green-600 bg-green-100';
+      case 'cancelled':
+        return 'text-red-600 bg-red-100';
+      default:
+        return 'text-gray-600 bg-gray-100';
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'scheduled': return <Clock size={16} />;
-      case 'completed': return <CheckCircle size={16} />;
-      case 'cancelled': return <AlertCircle size={16} />;
-      default: return <Clock size={16} />;
+      case 'scheduled':
+        return <Clock className="h-4 w-4" />;
+      case 'completed':
+        return <CheckCircle className="h-4 w-4" />;
+      case 'cancelled':
+        return <AlertCircle className="h-4 w-4" />;
+      default:
+        return <Clock className="h-4 w-4" />;
     }
   };
 
   return (
-    <div style={{ padding: '20px' }}>
-      <div style={{ backgroundColor: '#f8f9fa', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
-        <h2>📅 Appointment Booking</h2>
-        <p>✅ Step 5: Appointment display working!</p>
-        <p>Patient: {patient.name} | Appointments: {appointments.length}</p>
+    <div className="space-y-6">
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+        <p className="text-sm text-green-800">
+          ✅ <strong>FINAL VERSION:</strong> Full functionality with Tailwind CSS!
+        </p>
       </div>
 
-      <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', border: '1px solid #ddd' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Calendar size={24} color="#007bff" />
-            <h3>Your Appointments</h3>
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-3">
+            <Calendar className="h-6 w-6 text-blue-600" />
+            <h2 className="text-2xl font-bold text-gray-900">Appointments</h2>
           </div>
+
           <button
             onClick={() => setShowBooking(!showBooking)}
-            style={{
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              padding: '10px 20px',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            <Plus size={16} />
-            Book Appointment
+            <Plus className="h-4 w-4" />
+            <span>Book Appointment</span>
           </button>
         </div>
 
         {showBooking && (
-          <div style={{ backgroundColor: '#e3f2fd', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
-            <h4>Book New Appointment</h4>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+            <h3 className="text-lg font-semibold text-blue-900 mb-4">Book New Appointment</h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Select Doctor:</label>
-                <select 
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Doctor
+                </label>
+                <select
                   value={selectedDoctor}
                   onChange={(e) => setSelectedDoctor(e.target.value)}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Choose a doctor</option>
                   {doctors.map((doctor) => (
@@ -155,22 +149,26 @@ export default function AppointmentBooking() {
               </div>
 
               <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Select Date:</label>
-                <input 
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Date
+                </label>
+                <input
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
                   min={getMinDate()}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Select Time:</label>
-                <select 
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Time
+                </label>
+                <select
                   value={selectedTime}
                   onChange={(e) => setSelectedTime(e.target.value)}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Choose time</option>
                   {availableTimeSlots.map((time) => (
@@ -182,30 +180,16 @@ export default function AppointmentBooking() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px' }}>
+            <div className="flex space-x-3">
               <button
                 onClick={handleBookAppointment}
-                style={{
-                  backgroundColor: '#28a745',
-                  color: 'white',
-                  border: 'none',
-                  padding: '10px 20px',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Book Appointment
               </button>
               <button
                 onClick={() => setShowBooking(false)}
-                style={{
-                  backgroundColor: '#6c757d',
-                  color: 'white',
-                  border: 'none',
-                  padding: '10px 20px',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
@@ -213,81 +197,83 @@ export default function AppointmentBooking() {
           </div>
         )}
 
-        {/* Appointments List */}
         <div>
-          <h4>Your Appointments</h4>
-          
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Appointments</h3>
+
           {appointments.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#6c757d' }}>
-              <Calendar size={48} color="#ccc" style={{ margin: '0 auto 16px auto' }} />
-              <p>📋 No appointments scheduled</p>
-              <p>Book your first appointment to get started</p>
+            <div className="text-center py-8 text-gray-500">
+              <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p>No appointments scheduled</p>
+              <p className="text-sm">Book your first appointment to get started</p>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <div className="space-y-4">
               {appointments
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                 .map((appointment) => {
                   const doctor = doctors.find((d) => d.id === appointment.doctor_id);
                   const appointmentDate = new Date(`${appointment.date}T${appointment.time}`);
                   const isUpcoming = appointmentDate > new Date();
-                  const statusColors = getStatusColor(appointment.status);
 
                   return (
                     <div
                       key={appointment.id}
-                      style={{
-                        padding: '15px',
-                        borderRadius: '8px',
-                        border: `2px solid ${isUpcoming ? '#007bff' : '#ddd'}`,
-                        backgroundColor: isUpcoming ? '#f8f9ff' : '#f9f9f9'
-                      }}
+                      className={`p-4 rounded-lg border-2 ${
+                        isUpcoming
+                          ? 'border-blue-200 bg-blue-50'
+                          : 'border-gray-200 bg-gray-50'
+                      }`}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                          <div style={{
-                            padding: '10px',
-                            borderRadius: '50%',
-                            backgroundColor: isUpcoming ? '#e3f2fd' : '#f5f5f5'
-                          }}>
-                            <User size={24} color={isUpcoming ? '#007bff' : '#666'} />
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div
+                            className={`p-3 rounded-full ${
+                              isUpcoming ? 'bg-blue-100' : 'bg-gray-100'
+                            }`}
+                          >
+                            <User
+                              className={`h-6 w-6 ${
+                                isUpcoming ? 'text-blue-600' : 'text-gray-600'
+                              }`}
+                            />
                           </div>
 
                           <div>
-                            <h5 style={{ margin: '0 0 5px 0', fontWeight: 'bold' }}>
+                            <h4 className="font-semibold text-gray-900">
                               {doctor?.name || 'Doctor Not Found'}
-                            </h5>
-                            <p style={{ margin: '0 0 5px 0', color: '#666', fontSize: '14px' }}>
+                            </h4>
+                            <p className="text-sm text-gray-600">
                               {doctor?.specialization || 'General Practice'}
                             </p>
-                            <div style={{ display: 'flex', gap: '15px', fontSize: '14px', color: '#666' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                <Calendar size={14} />
+                            <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
+                              <div className="flex items-center space-x-1">
+                                <Calendar className="h-4 w-4" />
                                 <span>{new Date(appointment.date).toLocaleDateString()}</span>
                               </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                <Clock size={14} />
+                              <div className="flex items-center space-x-1">
+                                <Clock className="h-4 w-4" />
                                 <span>{appointment.time}</span>
                               </div>
                             </div>
                           </div>
                         </div>
 
-                        <div style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          padding: '8px 12px',
-                          borderRadius: '20px',
-                          backgroundColor: statusColors.bg,
-                          color: statusColors.text,
-                          fontSize: '14px',
-                          fontWeight: 'bold'
-                        }}>
+                        <div
+                          className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
+                            appointment.status
+                          )}`}
+                        >
                           {getStatusIcon(appointment.status)}
-                          <span style={{ textTransform: 'capitalize' }}>{appointment.status}</span>
+                          <span className="capitalize">{appointment.status}</span>
                         </div>
                       </div>
+
+                      {appointment.notes && (
+                        <div className="mt-4 p-3 bg-white rounded-lg border border-gray-200">
+                          <h5 className="font-medium text-gray-900 mb-1">Visit Notes:</h5>
+                          <p className="text-sm text-gray-600">{appointment.notes}</p>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
