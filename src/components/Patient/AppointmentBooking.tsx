@@ -1,46 +1,42 @@
-import { supabase } from '../../lib/supabaseClient'
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabaseClient';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Calendar, Clock, User, CheckCircle, AlertCircle, Plus } from 'lucide-react';
 
 export default function AppointmentBooking() {
-  const [appointments, setAppointments] = useState<any[]>([]);
+  const { patients, doctors, addAppointment } = useData();
   const { user } = useAuth();
-  const { patients, doctors, addAppointment } = useData();  // ⚠️ make sure this is imported
 
-  const patient = patients.find(p => p.id === user?.id);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [showBooking, setShowBooking] = useState(false);
+  const [selectedDoctor, setSelectedDoctor] = useState('');
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTime, setSelectedTime] = useState('');
+
+  // ✅ find patient from context
+  const patient = patients.find((p) => p.id === user?.id);
   if (!patient) return <div>Patient not found</div>;
 
+  // ✅ fetch appointments from Supabase
   useEffect(() => {
     const fetchAppointments = async () => {
       const { data, error } = await supabase
         .from('appointments')
         .select('*')
-        .eq('patient_id', patient.id);  // only this patient’s appointments
+        .eq('patient_id', patient.id);
 
-      if (error) console.error(error);
-      else setAppointments(data);
+      if (error) console.error('Error fetching appointments:', error);
+      else setAppointments(data || []);
     };
 
     fetchAppointments();
   }, [patient.id]);
 
-const patient = patients.find(p => p.id === user?.id);
-  if (!patient) return <div>Patient not found</div>;
-
-  const { user } = useAuth();
-  const [showBooking, setShowBooking] = useState(false);
-  const [selectedDoctor, setSelectedDoctor] = useState('');
-  const [selectedDate, setSelectedDate] = useState('');
-  const [selectedTime, setSelectedTime] = useState('');
-  
-  
-  const patientAppointments = appointments.filter(a => a.patientId === patient.id);
-
+  // ✅ time slots
   const availableTimeSlots = [
     '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-    '14:00', '14:30', '15:00', '15:30', '16:00', '16:30'
+    '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
   ];
 
   const getMinDate = () => {
@@ -49,33 +45,59 @@ const patient = patients.find(p => p.id === user?.id);
     return tomorrow.toISOString().split('T')[0];
   };
 
+  // ✅ booking handler
   const handleBookAppointment = async () => {
-  if (!selectedDoctor || !selectedDate || !selectedTime) {
-    alert('Please fill in all fields');
-    return;
-  }
+    if (!selectedDoctor || !selectedDate || !selectedTime) {
+      alert('Please fill in all fields');
+      return;
+    }
 
-  const { data, error } = await supabase
-    .from('appointments')
-    .insert([
+    const { data, error } = await supabase.from('appointments').insert([
       {
         patient_id: patient.id,
         doctor_id: selectedDoctor,
         date: selectedDate,
         time: selectedTime,
         status: 'scheduled',
-      }
+      },
     ]);
 
-  if (error) {
-    console.error('Supabase error:', error);  // ✅ log it
-    alert(`Something went wrong: ${error.message}`);
-    return;
-  }
+    if (error) {
+      console.error('Supabase error:', error);
+      alert(`Something went wrong: ${error.message}`);
+      return;
+    }
 
-  console.log('Inserted row:', data);  // ✅ check what was inserted
+    // update local state + context
+    addAppointment({
+      patientId: patient.id,
+      doctorId: selectedDoctor,
+      date: selectedDate,
+      time: selectedTime,
+      status: 'scheduled',
+    });
 
-  
+    setAppointments((prev) => [
+      ...prev,
+      {
+        id: data?.[0]?.id || Math.random().toString(),
+        patient_id: patient.id,
+        doctor_id: selectedDoctor,
+        date: selectedDate,
+        time: selectedTime,
+        status: 'scheduled',
+      },
+    ]);
+
+    setShowBooking(false);
+    setSelectedDoctor('');
+    setSelectedDate('');
+    setSelectedTime('');
+
+    alert('Appointment booked successfully!');
+  };
+
+  // ✅ helpers for UI
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'scheduled':
@@ -110,7 +132,7 @@ const patient = patients.find(p => p.id === user?.id);
             <Calendar className="h-6 w-6 text-blue-600" />
             <h2 className="text-2xl font-bold text-gray-900">Appointments</h2>
           </div>
-          
+
           <button
             onClick={() => setShowBooking(!showBooking)}
             className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -124,7 +146,7 @@ const patient = patients.find(p => p.id === user?.id);
         {showBooking && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
             <h3 className="text-lg font-semibold text-blue-900 mb-4">Book New Appointment</h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -136,7 +158,7 @@ const patient = patients.find(p => p.id === user?.id);
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Choose a doctor</option>
-                  {doctors.map(doctor => (
+                  {doctors.map((doctor) => (
                     <option key={doctor.id} value={doctor.id}>
                       {doctor.name} - {doctor.specialization}
                     </option>
@@ -167,8 +189,10 @@ const patient = patients.find(p => p.id === user?.id);
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Choose time</option>
-                  {availableTimeSlots.map(time => (
-                    <option key={time} value={time}>{time}</option>
+                  {availableTimeSlots.map((time) => (
+                    <option key={time} value={time}>
+                      {time}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -191,11 +215,11 @@ const patient = patients.find(p => p.id === user?.id);
           </div>
         )}
 
-        {/* Appointments List */}
+        {/* Appointment List */}
         <div>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Appointments</h3>
-          
-          {patientAppointments.length === 0 ? (
+
+          {appointments.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <p>No appointments scheduled</p>
@@ -203,23 +227,36 @@ const patient = patients.find(p => p.id === user?.id);
             </div>
           ) : (
             <div className="space-y-4">
-              {patientAppointments
+              {appointments
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                 .map((appointment) => {
-                  const doctor = doctors.find(d => d.id === appointment.doctorId);
+                  const doctor = doctors.find((d) => d.id === appointment.doctor_id);
                   const appointmentDate = new Date(`${appointment.date}T${appointment.time}`);
                   const isUpcoming = appointmentDate > new Date();
-                  
+
                   return (
-                    <div key={appointment.id} className={`p-4 rounded-lg border-2 ${
-                      isUpcoming ? 'border-blue-200 bg-blue-50' : 'border-gray-200 bg-gray-50'
-                    }`}>
+                    <div
+                      key={appointment.id}
+                      className={`p-4 rounded-lg border-2 ${
+                        isUpcoming
+                          ? 'border-blue-200 bg-blue-50'
+                          : 'border-gray-200 bg-gray-50'
+                      }`}
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
-                          <div className={`p-3 rounded-full ${isUpcoming ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                            <User className={`h-6 w-6 ${isUpcoming ? 'text-blue-600' : 'text-gray-600'}`} />
+                          <div
+                            className={`p-3 rounded-full ${
+                              isUpcoming ? 'bg-blue-100' : 'bg-gray-100'
+                            }`}
+                          >
+                            <User
+                              className={`h-6 w-6 ${
+                                isUpcoming ? 'text-blue-600' : 'text-gray-600'
+                              }`}
+                            />
                           </div>
-                          
+
                           <div>
                             <h4 className="font-semibold text-gray-900">
                               {doctor?.name || 'Doctor Not Found'}
@@ -240,7 +277,11 @@ const patient = patients.find(p => p.id === user?.id);
                           </div>
                         </div>
 
-                        <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(appointment.status)}`}>
+                        <div
+                          className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
+                            appointment.status
+                          )}`}
+                        >
                           {getStatusIcon(appointment.status)}
                           <span className="capitalize">{appointment.status}</span>
                         </div>
