@@ -1,11 +1,43 @@
 import React, { useState, useEffect } from 'react';
-import { useData } from '../../contexts/DataContext';
-import { useAuth } from '../../contexts/AuthContext';
+import { createClient } from '@supabase/supabase-js';
 import { Calendar, Clock, User, CheckCircle, AlertCircle, Plus, Loader2 } from 'lucide-react';
-import { appointmentService, doctorService, type Appointment, type Doctor } from '../../lib/supabase';
+
+// Inline Supabase setup (avoiding import issues)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+console.log('Environment check:');
+console.log('Supabase URL:', supabaseUrl ? 'Found' : 'Missing');
+console.log('Supabase Key:', supabaseAnonKey ? 'Found' : 'Missing');
+
+const supabase = supabaseUrl && supabaseAnonKey 
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
+
+// Types
+interface Doctor {
+  id: string;
+  name: string;
+  specialization: string;
+  email: string;
+  is_available: boolean;
+}
+
+interface Appointment {
+  id: string;
+  patient_id: string;
+  doctor_id: string;
+  appointment_date: string;
+  appointment_time: string;
+  status: string;
+  reason?: string;
+  notes?: string;
+  doctors?: Doctor;
+}
 
 export default function AppointmentBooking() {
-  const { user } = useAuth();
+  // Use a test patient ID for now
+  const currentPatientId = 'test-patient-123';
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -18,35 +50,99 @@ export default function AppointmentBooking() {
   const [selectedTime, setSelectedTime] = useState('');
   const [reason, setReason] = useState('');
 
-  // Mock user if not available (for testing)
-  const currentUser = user || { id: 'test-patient-1', name: 'Test Patient' };
+  // Load data function
+  const loadDoctors = async () => {
+    if (!supabase) {
+      console.log('Using mock doctors (no Supabase connection)');
+      return [
+        {
+          id: 'doc1',
+          name: 'Dr. Sarah Johnson',
+          specialization: 'Internal Medicine',
+          email: 'sarah@hospital.com',
+          is_available: true
+        },
+        {
+          id: 'doc2',
+          name: 'Dr. Michael Chen',
+          specialization: 'Cardiology',
+          email: 'michael@hospital.com',
+          is_available: true
+        }
+      ];
+    }
 
-  // Load appointments and doctors
+    try {
+      console.log('Fetching doctors from Supabase...');
+      const { data, error } = await supabase
+        .from('doctors')
+        .select('*')
+        .eq('is_available', true);
+
+      if (error) {
+        console.error('Supabase error fetching doctors:', error);
+        return [];
+      }
+
+      console.log('Doctors loaded from database:', data?.length || 0);
+      return data || [];
+    } catch (error) {
+      console.error('Exception loading doctors:', error);
+      return [];
+    }
+  };
+
+  const loadAppointments = async () => {
+    if (!supabase) {
+      console.log('No Supabase connection, returning empty appointments');
+      return [];
+    }
+
+    try {
+      console.log('Fetching appointments for patient:', currentPatientId);
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('*, doctors(*)')
+        .eq('patient_id', currentPatientId);
+
+      if (error) {
+        console.error('Supabase error fetching appointments:', error);
+        return [];
+      }
+
+      console.log('Appointments loaded:', data?.length || 0);
+      return data || [];
+    } catch (error) {
+      console.error('Exception loading appointments:', error);
+      return [];
+    }
+  };
+
+  // Load data on component mount
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
+        console.log('Starting data load...');
         
-        // Load doctors and appointments in parallel
         const [doctorsData, appointmentsData] = await Promise.all([
-          doctorService.getAllDoctors(),
-          appointmentService.getPatientAppointments(currentUser.id)
+          loadDoctors(),
+          loadAppointments()
         ]);
 
         setDoctors(doctorsData);
         setAppointments(appointmentsData);
+        
+        console.log('Data loading complete');
       } catch (error) {
-        console.error('Error loading data:', error);
-        // Don't show alert, just log error and continue with empty data
-        setDoctors([]);
-        setAppointments([]);
+        console.error('Error in loadData:', error);
       } finally {
         setLoading(false);
       }
     };
 
     loadData();
-  }, [currentUser.id]);
+  }, [currentPatientId]);
 
   const availableTimeSlots = [
     '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
@@ -65,20 +161,40 @@ export default function AppointmentBooking() {
       return;
     }
 
+    if (!supabase) {
+      alert('Database connection not available. Please check your environment variables.');
+      return;
+    }
+
     try {
       setBookingLoading(true);
 
-      // Create appointment in database
-      const newAppointment = await appointmentService.createAppointment({
-        patient_id: currentUser.id,
+      const appointmentData = {
+        patient_id: currentPatientId,
         doctor_id: selectedDoctor,
         appointment_date: selectedDate,
         appointment_time: selectedTime,
-        reason: reason || undefined,
-      });
+        status: 'scheduled',
+        reason: reason || null
+      };
+
+      console.log('Creating appointment:', appointmentData);
+
+      const { data, error } = await supabase
+        .from('appointments')
+        .insert([appointmentData])
+        .select('*, doctors(*)')
+        .single();
+
+      if (error) {
+        console.error('Error creating appointment:', error);
+        throw new Error(error.message);
+      }
+
+      console.log('Appointment created successfully:', data);
 
       // Update local state
-      setAppointments(prev => [...prev, newAppointment]);
+      setAppointments(prev => [...prev, data]);
 
       // Reset form
       setShowBooking(false);
@@ -88,31 +204,9 @@ export default function AppointmentBooking() {
       setReason('');
 
       alert('✅ Appointment booked successfully!');
-    } catch (error) {
-      console.error('Error booking appointment:', error);
-      
-      // Create mock appointment if database fails
-      const mockAppointment: Appointment = {
-        id: Date.now().toString(),
-        patient_id: currentUser.id,
-        doctor_id: selectedDoctor,
-        appointment_date: selectedDate,
-        appointment_time: selectedTime,
-        status: 'scheduled',
-        reason: reason || undefined,
-        doctor: doctors.find(d => d.id === selectedDoctor)
-      };
-
-      setAppointments(prev => [...prev, mockAppointment]);
-
-      // Reset form
-      setShowBooking(false);
-      setSelectedDoctor('');
-      setSelectedDate('');
-      setSelectedTime('');
-      setReason('');
-
-      alert('✅ Appointment booked successfully! (Using local storage)');
+    } catch (error: any) {
+      console.error('Failed to book appointment:', error);
+      alert(`Failed to book appointment: ${error.message || 'Unknown error'}`);
     } finally {
       setBookingLoading(false);
     }
@@ -123,61 +217,56 @@ export default function AppointmentBooking() {
       return;
     }
 
+    if (!supabase) {
+      alert('Database connection not available');
+      return;
+    }
+
     try {
-      // Try to update in database
-      await appointmentService.updateAppointment(appointmentId, {
-        status: 'cancelled'
-      });
+      const { data, error } = await supabase
+        .from('appointments')
+        .update({ status: 'cancelled' })
+        .eq('id', appointmentId)
+        .select('*, doctors(*)')
+        .single();
+
+      if (error) {
+        console.error('Error cancelling appointment:', error);
+        throw new Error(error.message);
+      }
 
       // Update local state
       setAppointments(prev =>
-        prev.map(apt =>
-          apt.id === appointmentId
-            ? { ...apt, status: 'cancelled' as const }
-            : apt
-        )
+        prev.map(apt => apt.id === appointmentId ? data : apt)
       );
 
       alert('Appointment cancelled successfully.');
-    } catch (error) {
-      console.error('Error cancelling appointment:', error);
-      
-      // Update local state even if database fails
-      setAppointments(prev =>
-        prev.map(apt =>
-          apt.id === appointmentId
-            ? { ...apt, status: 'cancelled' as const }
-            : apt
-        )
-      );
-      
-      alert('Appointment cancelled successfully.');
+    } catch (error: any) {
+      console.error('Failed to cancel appointment:', error);
+      alert(`Failed to cancel appointment: ${error.message || 'Unknown error'}`);
     }
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'scheduled':
         return 'text-blue-600 bg-blue-100';
       case 'completed':
         return 'text-green-600 bg-green-100';
       case 'cancelled':
         return 'text-red-600 bg-red-100';
-      case 'no-show':
-        return 'text-orange-600 bg-orange-100';
       default:
         return 'text-gray-600 bg-gray-100';
     }
   };
 
   const getStatusIcon = (status: string) => {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'scheduled':
         return <Clock className="h-4 w-4" />;
       case 'completed':
         return <CheckCircle className="h-4 w-4" />;
       case 'cancelled':
-      case 'no-show':
         return <AlertCircle className="h-4 w-4" />;
       default:
         return <Clock className="h-4 w-4" />;
@@ -195,12 +284,16 @@ export default function AppointmentBooking() {
 
   return (
     <div className="space-y-6">
+      {/* Debug info */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
         <p className="text-sm text-blue-800">
-          🔄 <strong>DATABASE INTEGRATION:</strong> Attempting to connect to Supabase, falling back to local storage if needed.
+          🔧 <strong>CONNECTION STATUS:</strong> {supabase ? 'Connected to Supabase' : 'Using mock data'}
         </p>
         <p className="text-xs text-blue-600">
-          User: {currentUser.name || currentUser.id} | Doctors: {doctors.length} | Appointments: {appointments.length}
+          Patient: {currentPatientId} | Doctors: {doctors.length} | Appointments: {appointments.length}
+        </p>
+        <p className="text-xs text-blue-500">
+          Environment: URL {supabaseUrl ? '✅' : '❌'} | Key {supabaseAnonKey ? '✅' : '❌'}
         </p>
       </div>
 
@@ -247,7 +340,7 @@ export default function AppointmentBooking() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Date *
+                  Appointment Date *
                 </label>
                 <input
                   type="date"
@@ -261,7 +354,7 @@ export default function AppointmentBooking() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Time *
+                  Appointment Time *
                 </label>
                 <select
                   value={selectedTime}
@@ -296,7 +389,7 @@ export default function AppointmentBooking() {
             <div className="flex space-x-3">
               <button
                 onClick={handleBookAppointment}
-                disabled={bookingLoading}
+                disabled={bookingLoading || !supabase}
                 className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
                 {bookingLoading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -310,6 +403,14 @@ export default function AppointmentBooking() {
                 Cancel
               </button>
             </div>
+
+            {!supabase && (
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                <p className="text-yellow-800 text-sm">
+                  ⚠️ Database connection not available. Using mock data for display only.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -356,10 +457,10 @@ export default function AppointmentBooking() {
 
                           <div>
                             <h4 className="font-semibold text-gray-900">
-                              {appointment.doctor?.name || 'Doctor Not Found'}
+                              {appointment.doctors?.name || 'Doctor Not Found'}
                             </h4>
                             <p className="text-sm text-gray-600">
-                              {appointment.doctor?.specialization || 'General Practice'}
+                              {appointment.doctors?.specialization || 'General Practice'}
                             </p>
                             <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
                               <div className="flex items-center space-x-1">
@@ -389,7 +490,7 @@ export default function AppointmentBooking() {
                             <span className="capitalize">{appointment.status}</span>
                           </div>
 
-                          {canCancel && (
+                          {canCancel && supabase && (
                             <button
                               onClick={() => handleCancelAppointment(appointment.id)}
                               className="text-red-600 hover:text-red-800 text-sm font-medium"

@@ -1,14 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Basic types
+// Types
 export interface Doctor {
   id: string;
   name: string;
   specialization: string;
-  email?: string;
-  phone?: string;
-  bio?: string;
-  is_available?: boolean;
+  email: string;
+  is_available: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Appointment {
@@ -17,7 +17,7 @@ export interface Appointment {
   doctor_id: string;
   appointment_date: string;
   appointment_time: string;
-  status: 'scheduled' | 'completed' | 'cancelled' | 'no-show';
+  status: string;
   reason?: string;
   notes?: string;
   created_at?: string;
@@ -25,51 +25,44 @@ export interface Appointment {
   doctor?: Doctor;
 }
 
-// Supabase client setup
+// Supabase setup
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase environment variables not found');
-}
+console.log('Supabase URL:', supabaseUrl ? 'Found' : 'Missing');
+console.log('Supabase Key:', supabaseAnonKey ? 'Found' : 'Missing');
 
 export const supabase = supabaseUrl && supabaseAnonKey 
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
-// Database service functions
+// Services
 export const appointmentService = {
   async getPatientAppointments(patientId: string) {
     if (!supabase) {
-      console.warn('Supabase not available, using mock data');
+      console.log('No supabase client, returning empty array');
       return [];
     }
 
     try {
       const { data, error } = await supabase
         .from('appointments')
-        .select(`
-          *,
-          doctor:doctors(*)
-        `)
-        .eq('patient_id', patientId)
-        .order('appointment_date', { ascending: true });
+        .select('*, doctors(*)')
+        .eq('patient_id', patientId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching appointments:', error);
+        return [];
+      }
+
       return data || [];
     } catch (error) {
-      console.error('Error fetching appointments:', error);
+      console.error('Exception fetching appointments:', error);
       return [];
     }
   },
 
-  async createAppointment(appointment: {
-    patient_id: string;
-    doctor_id: string;
-    appointment_date: string;
-    appointment_time: string;
-    reason?: string;
-  }) {
+  async createAppointment(appointment: any) {
     if (!supabase) {
       throw new Error('Database not available');
     }
@@ -77,17 +70,18 @@ export const appointmentService = {
     const { data, error } = await supabase
       .from('appointments')
       .insert([appointment])
-      .select(`
-        *,
-        doctor:doctors(*)
-      `)
+      .select('*, doctors(*)')
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Insert error:', error);
+      throw error;
+    }
+
     return data;
   },
 
-  async updateAppointment(id: string, updates: Partial<Appointment>) {
+  async updateAppointment(id: string, updates: any) {
     if (!supabase) {
       throw new Error('Database not available');
     }
@@ -96,13 +90,14 @@ export const appointmentService = {
       .from('appointments')
       .update(updates)
       .eq('id', id)
-      .select(`
-        *,
-        doctor:doctors(*)
-      `)
+      .select('*, doctors(*)')
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Update error:', error);
+      throw error;
+    }
+
     return data;
   }
 };
@@ -110,19 +105,21 @@ export const appointmentService = {
 export const doctorService = {
   async getAllDoctors() {
     if (!supabase) {
-      console.warn('Supabase not available, using mock data');
+      console.log('No supabase client, returning mock doctors');
       return [
         {
           id: 'doc1',
-          name: 'Dr. John Smith',
-          specialization: 'General Practice',
-          email: 'john.smith@hospital.com'
+          name: 'Dr. Sarah Johnson',
+          specialization: 'Internal Medicine',
+          email: 'sarah@hospital.com',
+          is_available: true
         },
         {
           id: 'doc2',
-          name: 'Dr. Sarah Johnson',
+          name: 'Dr. Michael Chen',
           specialization: 'Cardiology',
-          email: 'sarah.johnson@hospital.com'
+          email: 'michael@hospital.com',
+          is_available: true
         }
       ];
     }
@@ -131,22 +128,18 @@ export const doctorService = {
       const { data, error } = await supabase
         .from('doctors')
         .select('*')
-        .eq('is_available', true)
-        .order('name');
+        .eq('is_available', true);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching doctors:', error);
+        return [];
+      }
+
+      console.log('Doctors fetched:', data?.length || 0);
       return data || [];
     } catch (error) {
-      console.error('Error fetching doctors:', error);
-      // Return mock data if database fails
-      return [
-        {
-          id: 'doc1',
-          name: 'Dr. John Smith',
-          specialization: 'General Practice',
-          email: 'john.smith@hospital.com'
-        }
-      ];
+      console.error('Exception fetching doctors:', error);
+      return [];
     }
   }
 };
