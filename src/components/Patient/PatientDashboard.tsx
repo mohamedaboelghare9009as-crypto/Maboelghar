@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import PatientIntake from './PatientIntake';
 import MedicationTracker from './MedicationTracker';
 import LabUpload from './LabUpload';
-import AppointmentBooking from './AppointmentBooking';
+import AppointmentList from '../Patient/AppointmentList'; // <-- updated
 import PatientProfile from './PatientProfile';
 import Header from '../UI/Header';
 import { 
@@ -39,7 +39,8 @@ export default function PatientDashboard() {
       case 'labs':
         return <LabUpload />;
       case 'appointments':
-        return <AppointmentBooking />;
+        // <-- Pass the patient ID from auth context
+        return user ? <AppointmentList patientId={user.id} /> : <p>Please log in to see appointments.</p>;
       case 'profile':
         return <PatientProfile />;
       default:
