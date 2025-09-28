@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+// ✅ Updated import path - make sure this file exists
 import { supabase } from '../../lib/supabaseClient';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
