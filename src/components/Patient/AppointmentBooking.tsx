@@ -5,7 +5,21 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Calendar, Clock, User, CheckCircle, AlertCircle, Plus } from 'lucide-react';
 
 export default function AppointmentBooking() {
-  const { patients, doctors, appointments, addAppointment } = useData();
+const [appointments, setAppointments] = useState<any[]>([]);
+
+useEffect(() => {
+  const fetchAppointments = async () => {
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('patient_id', patient.id);  // only this patient’s appointments
+
+    if (error) console.error(error);
+    else setAppointments(data);
+  };
+
+  fetchAppointments();
+}, [patient.id]);
   const { user } = useAuth();
   const [showBooking, setShowBooking] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState('');
