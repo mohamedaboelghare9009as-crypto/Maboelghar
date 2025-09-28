@@ -48,7 +48,6 @@ useEffect(() => {
     return;
   }
 
-  // ✅ Save to Supabase
   const { data, error } = await supabase
     .from('appointments')
     .insert([
@@ -62,10 +61,29 @@ useEffect(() => {
     ]);
 
   if (error) {
-    console.error('Error saving appointment:', error);
-    alert('Something went wrong, please try again.');
+    console.error('Supabase error:', error);  // ✅ log it
+    alert(`Something went wrong: ${error.message}`);
     return;
   }
+
+  console.log('Inserted row:', data);  // ✅ check what was inserted
+
+  addAppointment({
+    patientId: patient.id,
+    doctorId: selectedDoctor,
+    date: selectedDate,
+    time: selectedTime,
+    status: 'scheduled'
+  });
+
+  setShowBooking(false);
+  setSelectedDoctor('');
+  setSelectedDate('');
+  setSelectedTime('');
+
+  alert('Appointment booked successfully!');
+};
+
 
   // ✅ Keep your local context update
   addAppointment({
