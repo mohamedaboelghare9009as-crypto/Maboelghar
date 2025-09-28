@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from 'react';
-// ✅ Updated import path - make sure this file exists
-import { supabase } from '../../lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Calendar, Clock, User, CheckCircle, AlertCircle, Plus } from 'lucide-react';
+
+// Inline Supabase client configuration
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error("Missing Supabase environment variables");
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default function AppointmentBooking() {
   const { patients, doctors, addAppointment } = useData();
