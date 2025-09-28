@@ -1,35 +1,57 @@
 import React, { useState, useEffect } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { Calendar, Clock, User, CheckCircle, AlertCircle, Plus } from 'lucide-react';
+import { Calendar, Clock, User, CheckCircle, AlertCircle, Plus, Loader2 } from 'lucide-react';
+import { appointmentService, doctorService, type Appointment, type Doctor } from '../../lib/supabase';
 
 export default function AppointmentBooking() {
-  const { patients, doctors, addAppointment } = useData();
   const { user } = useAuth();
 
-  const [appointments, setAppointments] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [bookingLoading, setBookingLoading] = useState(false);
+  
   const [showBooking, setShowBooking] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
+  const [reason, setReason] = useState('');
 
-  const patient = patients.find((p) => p.id === user?.id);
-  if (!patient) return <div className="p-5 text-red-600">Patient not found</div>;
+  // Check if user exists and has patient ID
+  if (!user?.id) {
+    return (
+      <div className="p-5 text-red-600 bg-red-50 rounded-lg">
+        <h2>⚠️ Authentication Required</h2>
+        <p>Please log in to view appointments.</p>
+      </div>
+    );
+  }
 
+  // Load appointments and doctors
   useEffect(() => {
-    console.log('Loading appointments...');
-    const mockAppointments = [
-      {
-        id: '1',
-        patient_id: patient.id,
-        doctor_id: doctors[0]?.id || 'doc1',
-        date: '2025-10-01',
-        time: '09:00',
-        status: 'scheduled'
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        
+        // Load doctors and appointments in parallel
+        const [doctorsData, appointmentsData] = await Promise.all([
+          doctorService.getAllDoctors(),
+          appointmentService.getPatientAppointments(user.id)
+        ]);
+
+        setDoctors(doctorsData);
+        setAppointments(appointmentsData);
+      } catch (error) {
+        console.error('Error loading data:', error);
+        alert('Failed to load data. Please refresh the page.');
+      } finally {
+        setLoading(false);
       }
-    ];
-    setAppointments(mockAppointments);
-  }, [patient.id, doctors]);
+    };
+
+    loadData();
+  }, [user.id]);
 
   const availableTimeSlots = [
     '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
@@ -44,35 +66,66 @@ export default function AppointmentBooking() {
 
   const handleBookAppointment = async () => {
     if (!selectedDoctor || !selectedDate || !selectedTime) {
-      alert('Please fill in all fields');
+      alert('Please fill in all required fields');
       return;
     }
 
-    const newAppointment = {
-      id: Date.now().toString(),
-      patient_id: patient.id,
-      doctor_id: selectedDoctor,
-      date: selectedDate,
-      time: selectedTime,
-      status: 'scheduled',
-    };
+    try {
+      setBookingLoading(true);
 
-    setAppointments((prev) => [...prev, newAppointment]);
+      // Create appointment in database
+      const newAppointment = await appointmentService.createAppointment({
+        patient_id: user.id,
+        doctor_id: selectedDoctor,
+        appointment_date: selectedDate,
+        appointment_time: selectedTime,
+        reason: reason || undefined,
+      });
 
-    addAppointment({
-      patientId: patient.id,
-      doctorId: selectedDoctor,
-      date: selectedDate,
-      time: selectedTime,
-      status: 'scheduled',
-    });
+      // Update local state
+      setAppointments(prev => [...prev, newAppointment]);
 
-    setShowBooking(false);
-    setSelectedDoctor('');
-    setSelectedDate('');
-    setSelectedTime('');
+      // Reset form
+      setShowBooking(false);
+      setSelectedDoctor('');
+      setSelectedDate('');
+      setSelectedTime('');
+      setReason('');
 
-    alert('✅ Appointment booked successfully!');
+      alert('✅ Appointment booked successfully!');
+    } catch (error) {
+      console.error('Error booking appointment:', error);
+      alert('Failed to book appointment. Please try again.');
+    } finally {
+      setBookingLoading(false);
+    }
+  };
+
+  const handleCancelAppointment = async (appointmentId: string) => {
+    if (!confirm('Are you sure you want to cancel this appointment?')) {
+      return;
+    }
+
+    try {
+      // Update appointment status to cancelled
+      await appointmentService.updateAppointment(appointmentId, {
+        status: 'cancelled'
+      });
+
+      // Update local state
+      setAppointments(prev =>
+        prev.map(apt =>
+          apt.id === appointmentId
+            ? { ...apt, status: 'cancelled' as const }
+            : apt
+        )
+      );
+
+      alert('Appointment cancelled successfully.');
+    } catch (error) {
+      console.error('Error cancelling appointment:', error);
+      alert('Failed to cancel appointment. Please try again.');
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -83,6 +136,8 @@ export default function AppointmentBooking() {
         return 'text-green-600 bg-green-100';
       case 'cancelled':
         return 'text-red-600 bg-red-100';
+      case 'no-show':
+        return 'text-orange-600 bg-orange-100';
       default:
         return 'text-gray-600 bg-gray-100';
     }
@@ -95,17 +150,30 @@ export default function AppointmentBooking() {
       case 'completed':
         return <CheckCircle className="h-4 w-4" />;
       case 'cancelled':
+      case 'no-show':
         return <AlertCircle className="h-4 w-4" />;
       default:
         return <Clock className="h-4 w-4" />;
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-gray-600">Loading appointments...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
         <p className="text-sm text-green-800">
-          ✅ <strong>FINAL VERSION:</strong> Full functionality with Tailwind CSS!
+          ✅ <strong>DATABASE CONNECTED:</strong> Now using real Supabase data!
+        </p>
+        <p className="text-xs text-green-600">
+          Doctors: {doctors.length} | Appointments: {appointments.length}
         </p>
       </div>
 
@@ -118,7 +186,8 @@ export default function AppointmentBooking() {
 
           <button
             onClick={() => setShowBooking(!showBooking)}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            disabled={bookingLoading}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />
             <span>Book Appointment</span>
@@ -129,15 +198,16 @@ export default function AppointmentBooking() {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
             <h3 className="text-lg font-semibold text-blue-900 mb-4">Book New Appointment</h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Doctor
+                  Select Doctor *
                 </label>
                 <select
                   value={selectedDoctor}
                   onChange={(e) => setSelectedDoctor(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  disabled={bookingLoading}
                 >
                   <option value="">Choose a doctor</option>
                   {doctors.map((doctor) => (
@@ -150,7 +220,7 @@ export default function AppointmentBooking() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Date
+                  Select Date *
                 </label>
                 <input
                   type="date"
@@ -158,17 +228,19 @@ export default function AppointmentBooking() {
                   onChange={(e) => setSelectedDate(e.target.value)}
                   min={getMinDate()}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  disabled={bookingLoading}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Time
+                  Select Time *
                 </label>
                 <select
                   value={selectedTime}
                   onChange={(e) => setSelectedTime(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  disabled={bookingLoading}
                 >
                   <option value="">Choose time</option>
                   {availableTimeSlots.map((time) => (
@@ -180,15 +252,32 @@ export default function AppointmentBooking() {
               </div>
             </div>
 
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Reason for Visit (Optional)
+              </label>
+              <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Brief description of your health concern..."
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                disabled={bookingLoading}
+              />
+            </div>
+
             <div className="flex space-x-3">
               <button
                 onClick={handleBookAppointment}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={bookingLoading}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
-                Book Appointment
+                {bookingLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                <span>Book Appointment</span>
               </button>
               <button
                 onClick={() => setShowBooking(false)}
+                disabled={bookingLoading}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancel
@@ -209,11 +298,11 @@ export default function AppointmentBooking() {
           ) : (
             <div className="space-y-4">
               {appointments
-                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                .sort((a, b) => new Date(a.appointment_date).getTime() - new Date(b.appointment_date).getTime())
                 .map((appointment) => {
-                  const doctor = doctors.find((d) => d.id === appointment.doctor_id);
-                  const appointmentDate = new Date(`${appointment.date}T${appointment.time}`);
+                  const appointmentDate = new Date(`${appointment.appointment_date}T${appointment.appointment_time}`);
                   const isUpcoming = appointmentDate > new Date();
+                  const canCancel = appointment.status === 'scheduled' && isUpcoming;
 
                   return (
                     <div
@@ -240,31 +329,47 @@ export default function AppointmentBooking() {
 
                           <div>
                             <h4 className="font-semibold text-gray-900">
-                              {doctor?.name || 'Doctor Not Found'}
+                              {appointment.doctor?.name || 'Doctor Not Found'}
                             </h4>
                             <p className="text-sm text-gray-600">
-                              {doctor?.specialization || 'General Practice'}
+                              {appointment.doctor?.specialization || 'General Practice'}
                             </p>
                             <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
                               <div className="flex items-center space-x-1">
                                 <Calendar className="h-4 w-4" />
-                                <span>{new Date(appointment.date).toLocaleDateString()}</span>
+                                <span>{new Date(appointment.appointment_date).toLocaleDateString()}</span>
                               </div>
                               <div className="flex items-center space-x-1">
                                 <Clock className="h-4 w-4" />
-                                <span>{appointment.time}</span>
+                                <span>{appointment.appointment_time}</span>
                               </div>
                             </div>
+                            {appointment.reason && (
+                              <p className="text-sm text-gray-600 mt-1">
+                                <strong>Reason:</strong> {appointment.reason}
+                              </p>
+                            )}
                           </div>
                         </div>
 
-                        <div
-                          className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
-                            appointment.status
-                          )}`}
-                        >
-                          {getStatusIcon(appointment.status)}
-                          <span className="capitalize">{appointment.status}</span>
+                        <div className="flex items-center space-x-3">
+                          <div
+                            className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
+                              appointment.status
+                            )}`}
+                          >
+                            {getStatusIcon(appointment.status)}
+                            <span className="capitalize">{appointment.status}</span>
+                          </div>
+
+                          {canCancel && (
+                            <button
+                              onClick={() => handleCancelAppointment(appointment.id)}
+                              className="text-red-600 hover:text-red-800 text-sm font-medium"
+                            >
+                              Cancel
+                            </button>
+                          )}
                         </div>
                       </div>
 
