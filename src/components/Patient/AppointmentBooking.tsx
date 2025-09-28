@@ -1,34 +1,41 @@
 import { supabase } from '../../lib/supabaseClient'
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Calendar, Clock, User, CheckCircle, AlertCircle, Plus } from 'lucide-react';
 
 export default function AppointmentBooking() {
-const [appointments, setAppointments] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const { user } = useAuth();
+  const { patients, doctors, addAppointment } = useData();  // ⚠️ make sure this is imported
 
-useEffect(() => {
-  const fetchAppointments = async () => {
-    const { data, error } = await supabase
-      .from('appointments')
-      .select('*')
-      .eq('patient_id', patient.id);  // only this patient’s appointments
+  const patient = patients.find(p => p.id === user?.id);
+  if (!patient) return <div>Patient not found</div>;
 
-    if (error) console.error(error);
-    else setAppointments(data);
-  };
+  useEffect(() => {
+    const fetchAppointments = async () => {
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('patient_id', patient.id);  // only this patient’s appointments
 
-  fetchAppointments();
-}, [patient.id]);
+      if (error) console.error(error);
+      else setAppointments(data);
+    };
+
+    fetchAppointments();
+  }, [patient.id]);
+
+const patient = patients.find(p => p.id === user?.id);
+  if (!patient) return <div>Patient not found</div>;
+
   const { user } = useAuth();
   const [showBooking, setShowBooking] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
   
-  const patient = patients.find(p => p.id === user?.id);
-  if (!patient) return <div>Patient not found</div>;
-
+  
   const patientAppointments = appointments.filter(a => a.patientId === patient.id);
 
   const availableTimeSlots = [
@@ -68,40 +75,7 @@ useEffect(() => {
 
   console.log('Inserted row:', data);  // ✅ check what was inserted
 
-  addAppointment({
-    patientId: patient.id,
-    doctorId: selectedDoctor,
-    date: selectedDate,
-    time: selectedTime,
-    status: 'scheduled'
-  });
-
-  setShowBooking(false);
-  setSelectedDoctor('');
-  setSelectedDate('');
-  setSelectedTime('');
-
-  alert('Appointment booked successfully!');
-};
-
-
-  // ✅ Keep your local context update
-  addAppointment({
-    patientId: patient.id,
-    doctorId: selectedDoctor,
-    date: selectedDate,
-    time: selectedTime,
-    status: 'scheduled'
-  });
-
-  setShowBooking(false);
-  setSelectedDoctor('');
-  setSelectedDate('');
-  setSelectedTime('');
-
-  alert('Appointment booked successfully!');
-};
-
+  
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'scheduled':
