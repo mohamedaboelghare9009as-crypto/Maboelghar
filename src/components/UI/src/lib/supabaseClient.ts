@@ -1,13 +1,7 @@
-import { supabase } from '../lib/supabaseClient';
+// lib/supabaseClient.ts
+import { createClient } from '@supabase/supabase-js';
 
-async function testConnection() {
-  const { data, error } = await supabase.from('doctors').select('*');
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-  if (error) {
-    console.error('❌ Connection failed:', error.message);
-  } else {
-    console.log('✅ Connection successful! Data:', data);
-  }
-}
-
-testConnection();
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
