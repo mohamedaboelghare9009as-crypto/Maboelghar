@@ -1,3 +1,4 @@
+import { supabase } from '../../lib/supabaseClient'
 import React, { useState } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -27,27 +28,47 @@ export default function AppointmentBooking() {
     return tomorrow.toISOString().split('T')[0];
   };
 
-  const handleBookAppointment = () => {
-    if (!selectedDoctor || !selectedDate || !selectedTime) {
-      alert('Please fill in all fields');
-      return;
-    }
+  const handleBookAppointment = async () => {
+  if (!selectedDoctor || !selectedDate || !selectedTime) {
+    alert('Please fill in all fields');
+    return;
+  }
 
-    addAppointment({
-      patientId: patient.id,
-      doctorId: selectedDoctor,
-      date: selectedDate,
-      time: selectedTime,
-      status: 'scheduled'
-    });
+  // ✅ Save to Supabase
+  const { data, error } = await supabase
+    .from('appointments')
+    .insert([
+      {
+        patient_id: patient.id,
+        doctor_id: selectedDoctor,
+        date: selectedDate,
+        time: selectedTime,
+        status: 'scheduled',
+      }
+    ]);
 
-    setShowBooking(false);
-    setSelectedDoctor('');
-    setSelectedDate('');
-    setSelectedTime('');
-    
-    alert('Appointment booked successfully!');
-  };
+  if (error) {
+    console.error('Error saving appointment:', error);
+    alert('Something went wrong, please try again.');
+    return;
+  }
+
+  // ✅ Keep your local context update
+  addAppointment({
+    patientId: patient.id,
+    doctorId: selectedDoctor,
+    date: selectedDate,
+    time: selectedTime,
+    status: 'scheduled'
+  });
+
+  setShowBooking(false);
+  setSelectedDoctor('');
+  setSelectedDate('');
+  setSelectedTime('');
+
+  alert('Appointment booked successfully!');
+};
 
   const getStatusColor = (status: string) => {
     switch (status) {
