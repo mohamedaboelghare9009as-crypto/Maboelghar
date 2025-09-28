@@ -1,0 +1,11 @@
+// pages/index.tsx or any parent component
+import DoctorList from '../components/Patient/DoctorList';
+
+export default function Home() {
+  return (
+    <div>
+      <h1>Welcome to the Clinic App</h1>
+      <DoctorList />
+    </div>
+  );
+}
